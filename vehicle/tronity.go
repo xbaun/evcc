@@ -158,7 +158,18 @@ func (v *Tronity) RefreshToken(_ *oauth2.Token) (*oauth2.Token, error) {
 	}
 
 	var token oauth2.Token
-	err = request.NewHelper(v.log).DoJSON(req, &token)
+
+	var resp struct {
+		AccessToken string        `json:"access_token"`
+		ExpiresIn   time.Duration `json:"expires_in"`
+	}
+
+	err = request.NewHelper(v.log).DoJSON(req, &resp)
+
+	if err == nil {
+		token.AccessToken = resp.AccessToken
+		token.Expiry = time.Now().Add(time.Second * resp.ExpiresIn)
+	}
 
 	return &token, err
 }
