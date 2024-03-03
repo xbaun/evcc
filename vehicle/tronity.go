@@ -20,6 +20,7 @@ package vehicle
 import (
 	"context"
 	"fmt"
+	"github.com/golang-jwt/jwt/v5"
 	"net/http"
 	"slices"
 	"time"
@@ -160,15 +161,17 @@ func (v *Tronity) RefreshToken(_ *oauth2.Token) (*oauth2.Token, error) {
 	var token oauth2.Token
 
 	var resp struct {
-		AccessToken string        `json:"access_token"`
-		ExpiresIn   time.Duration `json:"expires_in"`
+		AccessToken string `json:"access_token"`
 	}
 
-	err = request.NewHelper(v.log).DoJSON(req, &resp)
-
-	if err == nil {
+	if err := request.NewHelper(v.log).DoJSON(req, &resp); err == nil {
 		token.AccessToken = resp.AccessToken
-		token.Expiry = time.Now().Add(time.Second * resp.ExpiresIn)
+
+		if jwtToken, _, err := jwt.NewParser().ParseUnverified(resp.AccessToken, jwt.MapClaims{}); err == nil {
+			if exp, err := jwtToken.Claims.GetExpirationTime(); err == nil {
+				token.Expiry = exp.Time
+			}
+		}
 	}
 
 	return &token, err
